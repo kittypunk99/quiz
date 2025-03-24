@@ -1,0 +1,186 @@
+/* Grundlegende Einstellungen für die Schriftart und den Body */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f7fc;
+    color: #333;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+/* Allgemeine Container-Klasse */
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Kopfzeile */
+header {
+    text-align: center;
+    padding: 20px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 8px 8px 0 0;
+}
+
+/* Buttons */
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Formulare */
+form {
+    margin-top: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #555;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #333;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+textarea:focus,
+select:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+/* Fehlermeldungen */
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 5px;
+    border: 1px solid #f5c6cb;
+    font-size: 16px;
+}
+
+/* Erfolgsnachrichten */
+.success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 5px;
+    border: 1px solid #c3e6cb;
+    font-size: 16px;
+}
+
+/* Tabellen */
+table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+table th, table td {
+    padding: 12px 20px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+table th {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+}
+
+table tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+        padding: 15px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    textarea,
+    select {
+        padding: 12px;
+        font-size: 14px;
+    }
+
+    table th, table td {
+        padding: 10px 15px;
+    }
+}
+
+/* Animation für Lade-Indikatoren */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    color: #4CAF50;
+    animation: fadeIn 1s ease-in-out;
+}
+
+.loading:before {
+    content: '⏳';
+    margin-right: 10px;
+}
