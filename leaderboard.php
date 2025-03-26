@@ -1,7 +1,26 @@
+<head>
+    <title>SuperQuiz: Leaderboard</title>
+    <link rel='stylesheet' href='style.css'>
+</head>
+<body>
+<header>
+    <h2>Leaderboard</h2>
+    <nav>
+        <ul>
+            <li><a href="quiz.php">Quiz</a></li>
+            <li><a href="leaderboard.php">Leaderboard</a></li>
+            <li><a href="register.php">Registrieren</a></li>
+            <li><a href="login.php">Login</a></li>
+            <li><a href="admin.php">Admin</a></li>
+        </ul>
+    </nav>
+</header>
 <?php
 global $pdo;
 session_start();
+session_regenerate_id(true);
 require 'db.php';
+require_once 'error_handler.php';
 
 // Alle Ergebnisse abfragen, sortiert nach Anzahl der richtigen Antworten
 $stmt = $pdo->query("SELECT u.username, r.correct_answers, r.percentage
@@ -11,7 +30,6 @@ $stmt = $pdo->query("SELECT u.username, r.correct_answers, r.percentage
 
 $results = $stmt->fetchAll();
 ?>
-<link rel="stylesheet" href="style.css">
 
 <h2>Leaderboard</h2>
 <table>
@@ -34,3 +52,4 @@ $results = $stmt->fetchAll();
 </table>
 
 <a href="quiz.php">Zurück zum Quiz</a>
+</body>

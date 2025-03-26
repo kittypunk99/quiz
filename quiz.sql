@@ -16,13 +16,14 @@ CREATE TABLE user
     id         INT AUTO_INCREMENT PRIMARY KEY,
     username   VARCHAR(255) NOT NULL UNIQUE,
     password   VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE category
 (
     id        INT AUTO_INCREMENT PRIMARY KEY,
-    name      VARCHAR(255) NOT NULL,
+    name      VARCHAR(255) NOT NULL UNIQUE,
     parent_id INT DEFAULT NULL,
     FOREIGN KEY (parent_id) REFERENCES category (id) ON DELETE SET NULL
 );
@@ -68,8 +69,6 @@ CREATE TABLE results
     FOREIGN KEY (user_id) REFERENCES user (id)
 );
 
-INSERT INTO category (name, parent_id)
-VALUES ('Hauptkategorie', NULL);
 DELIMITER $$
 
 CREATE TRIGGER prevent_delete_main_category
@@ -91,3 +90,7 @@ BEGIN
     END IF;
 end$$
 DELIMITER ;
+INSERT INTO category (name, parent_id)
+VALUES ('Hauptkategorie', NULL);
+INSERT INTO user (username, password, is_admin)
+VALUES ('admin', '$2y$10$FiqctkmNl0IMFmNdrP.zO.kroSepVvWLm68tscA562sPS/yYVeGVK',true);

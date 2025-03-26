@@ -6,12 +6,71 @@
 }
 
 body {
+    display: flex;
     font-family: 'Arial', sans-serif;
     background-color: #f4f7fc;
     color: #333;
     line-height: 1.6;
     margin: 0;
-    padding: 0;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding-left: 20vw;
+    padding-right: 20vw;
+}
+
+li {
+    width: 100vw
+}
+
+nav {
+    width: 50vw
+}
+
+ul {
+    width: 50vw;
+    display: flex;
+    justify-content: right;
+    justify-items: right;
+
+}
+
+h2 {
+    width: 100vw;
+    text-align: center;
+}
+
+header h2 {
+    width: 10vw;
+    font-size: 2.5vh;
+}
+
+.admin-section {
+    margin-top: 10vh;
+    width: 40vw;
+}
+
+.admin-section button {
+    width: 100vw;
+}
+
+a {
+    margin-top: 7vh;
+    width: 40vw;
+    text-align: right;
+}
+
+.c-question {
+    width: 100vw;
+    text-align: center;
+}
+
+.q-form {
+    width: 40vw;
+    text-align: center;
+}
+
+.ans {
+    width: 100vw;
 }
 
 /* Allgemeine Container-Klasse */
@@ -25,13 +84,22 @@ body {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+.redir {
+    width: 100vw;
+    text-align: center;
+}
+
 /* Kopfzeile */
 header {
     text-align: center;
     padding: 20px;
     background-color: #4CAF50;
     color: white;
-    border-radius: 8px 8px 0 0;
+    border-radius: 1vh;
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100vw;
+    margin-bottom: 1vh;
 }
 
 /* Buttons */
@@ -58,6 +126,10 @@ button:disabled {
 /* Formulare */
 form {
     margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+
 }
 
 label {
