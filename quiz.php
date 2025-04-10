@@ -1,48 +1,99 @@
+<?php
+session_start();
+session_regenerate_id(true);
+require_once 'db.php';
+global $pdo;
+
+// CSRF
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
+function get_subcategories($parent_id, $pdo): array
+{
+    $stmt = $pdo->prepare("SELECT id, name FROM category WHERE parent_id = :parent_id ORDER BY name");
+    $stmt->execute(['parent_id' => $parent_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function get_category_path($category_id, $pdo): array
+{
+    $path = [];
+    while ($category_id) {
+        $stmt = $pdo->prepare("SELECT id, name, parent_id FROM category WHERE id = :id");
+        $stmt->execute(['id' => $category_id]);
+        $cat = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$cat) break;
+        array_unshift($path, $cat);  // prepend
+        $category_id = $cat['parent_id'];
+    }
+    return $path;
+}
+
+// Kategorieauswahl auslesen
+$selected_path = [];
+$selected_category_id = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    foreach ($_POST as $key => $val) {
+        if (substr($key, 0, 4) === 'cat_' && is_numeric($val)) {
+            $selected_path[] = (int)$val;
+        }
+    }
+
+    if (isset($_POST['start_quiz']) && count($selected_path) > 0) {
+        $selected_category_id = end($selected_path);
+    }
+}
+
+// Root-Kategorie ("Hauptkategorie") ermitteln
+$stmt = $pdo->prepare("SELECT id FROM category WHERE name = 'Hauptkategorie' LIMIT 1");
+$stmt->execute();
+$root_id = $stmt->fetchColumn();
+
+$current_parent_id = $root_id;
+$category_selects = [];
+
+foreach ($selected_path as $depth => $cat_id) {
+    $subcats = get_subcategories($current_parent_id, $pdo);
+    if (count($subcats) === 0) break;
+
+    $category_selects[] = ['name' => "cat_$depth", 'selected' => $cat_id, 'options' => $subcats,];
+    $current_parent_id = $cat_id;
+}
+
+// Letzten Level nachladen, wenn es noch Unterkategorien gibt
+$next_subcategories = get_subcategories($current_parent_id, $pdo);
+if (count($next_subcategories) > 0) {
+    $category_selects[] = ['name' => 'cat_' . count($category_selects), 'selected' => null, 'options' => $next_subcategories,];
+}
+
+// Fragen laden, falls Quiz gestartet wurde
+$questions = [];
+$stmt = $pdo->prepare("
+    SELECT q.id, q.text
+    FROM question q
+    WHERE q.category_id = :category_id
+      AND EXISTS (
+          SELECT 1 FROM answer a WHERE a.question_id = q.id AND a.is_correct = 1
+      )
+      AND EXISTS (
+          SELECT 1 FROM answer a WHERE a.question_id = q.id AND a.is_correct = 0
+      )
+");
+$stmt->execute(['category_id' => $selected_category_id]);
+$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$_SESSION['quiz_questions'] = $questions;
+$_SESSION['current_question'] = 0;
+
+?>
+
+<!DOCTYPE html>
+<html lang="de">
 <head>
-    <title>SuperQuiz: Quiz</title>
-    <link rel='stylesheet' href='style.css'>
-    <script>
-
-        function loadSubcategories(parentId, level) {
-            fetch('get_subcategories.php?parent_id=' + parentId)
-                .then(response => response.text())
-                .then(data => {
-                    let container = document.getElementById('subcategories');
-                    let selects = container.querySelectorAll('.subcategory-select');
-
-                    // Entferne alle tieferen Selects
-                    selects.forEach(select => {
-                        if (parseInt(select.dataset.level) >= level) {
-                            select.remove();
-                        }
-                    });
-
-                    // Falls es Unterkategorien gibt, ein neues Select-Menü hinzufügen
-                    if (data.trim()) {
-                        let select = document.createElement('select');
-                        select.className = 'subcategory-select';
-                        select.dataset.level = level;
-                        select.name = 'category_id';
-                        select.innerHTML = `<option value="${parentId}">Keine (Nur diese wählen)</option>` + data;
-                        select.addEventListener('change', function () {
-                            document.getElementById('finalCategory').value = this.value;
-                            if (this.value !== `${parentId}`) loadSubcategories(this.value, level + 1);
-                        });
-                        container.appendChild(select);
-                    } else {
-                        // Wenn es keine Unterkategorie mehr gibt, speichere die letzte Auswahl
-                        document.getElementById('finalCategory').value = parentId;
-                    }
-                });
-        }
-
-        function removeFirstOption(select) {
-            if (select.options[0].value === "") {
-                select.remove(0); // Entfernt die erste Option, wenn sie "-- Hauptkategorie wählen --" ist
-                document.getElementById("categoryForm").querySelector("button").disabled = false;
-            }
-        }
-    </script>
+    <meta charset="UTF-8">
+    <title>SuperQuiz</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
@@ -57,98 +108,77 @@
         </ul>
     </nav>
 </header>
+<main>
 
+    <?php if (!$selected_category_id): ?>
+        <h3>Kategorie wählen</h3>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+            <?php foreach ($category_selects as $select): ?>
+                <label class="category">
+                    <select name="<?= htmlspecialchars($select['name']) ?>" onchange="this.form.submit()">
+                        <option value="">-- Kategorie wählen --</option>
+                        <?php foreach ($select['options'] as $option): ?>
+                            <option value="<?= $option['id'] ?>" <?= ($option['id'] == $select['selected'] ? 'selected' : '') ?>>
+                                <?= htmlspecialchars($option['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <br>
+            <?php endforeach; ?>
+            <?php if (!empty($selected_path)): ?>
+                <input type="submit" name="start_quiz" value="Quiz starten">
+            <?php endif; ?>
+            <noscript><input type="submit" value="Weiter"></noscript>
+        </form>
 
-<?php
-global $pdo;
-session_start();
-session_regenerate_id(true);
-require 'db.php';
-require_once 'error_handler.php';
+    <?php elseif ($questions): ?>
 
-// Nutzer muss eingeloggt sein
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
-}
+        <form method="post" action="result.php">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+            <input type="hidden" name="category_id" value="<?= htmlspecialchars($selected_category_id) ?>">
+            <?php
+            if (isset($_POST['next'])) {
+                $_SESSION['current_question']++;
+            } elseif (isset($_POST['prev'])) {
+                $_SESSION['current_question'] = max(0, $_SESSION['current_question'] - 1);
+            }
 
-// Kategorie auswählen
-if (!isset($_SESSION['category_id']) && $_SERVER["REQUEST_METHOD"] != "POST") {
-    $stmt = $pdo->prepare("SELECT id, name FROM category WHERE parent_id = 1");
-    $stmt->execute();
-    $rootCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    echo "<h2>Kategorie auswählen</h2>";
-    echo "<form method='POST' action='quiz.php' id='categoryForm'>";
-    echo "<select id='categorySelect' name='category_id' onchange='removeFirstOption(this);loadSubcategories(this.value, 1)'>";
-    echo "<option value=''>-- Hauptkategorie wählen --</option>";
-    foreach ($rootCategories as $category):
-        echo "<option value='" . htmlspecialchars($category['id']) . "'>" . htmlspecialchars($category['name']) . "</option>";
-    endforeach;
-    echo "</select>";
-    echo "<div id='subcategories'></div>";
-    echo "<input type='hidden' id='finalCategory' name='final_category' value=''>";
-    echo "<button type='submit' disabled='disabled'>Quiz starten</button>";
-    echo "</form>";
-    exit;
-}
+            $index = $_SESSION['current_question'];
+            if (isset($_SESSION['quiz_questions'][$index])) {
+                $current_question = $_SESSION['quiz_questions'][$index];
+                echo "<h3>Frage " . ($index + 1) . ":</h3>";
+                echo "<p>" . htmlspecialchars($current_question['text']) . "</p>";
 
+                // Antworten abrufen
+                $stmt = $pdo->prepare("SELECT id, text FROM answer WHERE question_id = :qid ORDER BY RAND()");
+                $stmt->execute(['qid' => $current_question['id']]);
+                $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Kategorie setzen
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['category_id'])) {
-    $_SESSION['category_id'] = $_POST['category_id'];
-    $_SESSION['question_index'] = 0;
-}
+                // Antworten anzeigen
+                foreach ($answers as $answer) {
+                    echo "<label>";
+                    echo "<input type='checkbox' name='answers[" . htmlspecialchars($current_question['id']) . "]' value='" . htmlspecialchars($answer['id']) . "' required>";
+                    echo htmlspecialchars($answer['text']);
+                    echo "</label><br>";
+                }
+                if ($index > 0) {
+                    echo "<button type='submit' name='prev'>Zurück</button>";
+                } elseif ($index < count($answers)) {
+                    echo "<button type='submit' name='next'>Weiter</button>";
+                } else {
+                    echo "<input type='submit' value='Abschicken'>";
+                }
+            }
+            ?>
 
-// Fragen abrufen
-$stmt = $pdo->prepare("SELECT id, text FROM question WHERE category_id = :category_id");
-$stmt->execute(['category_id' => $_SESSION['category_id']]);
-$questions = $stmt->fetchAll();
-if (empty($questions)) {
-    unset($_SESSION['category_id']);
-    echo "<p>Keine Fragen in dieser Kategorie vorhanden!</p>";
-    echo "<a href='quiz.php'>Zurück</a>";
-    exit;
-}
+        </form>
+    <?php else: ?>
+        <p>Keine Fragen in dieser Kategorie vorhanden.</p>
+        <a href="quiz.php">Zurück</a>
+    <?php endif; ?>
 
-// Quiz beendet?
-if ($_SESSION['question_index'] >= count($questions)) {
-    header("Location: result.php");
-    exit;
-}
-
-// Aktuelle Frage
-$question = $questions[$_SESSION['question_index']];
-$stmt = $pdo->prepare("SELECT id, text FROM answer WHERE question_id = :question_id");
-$stmt->execute(['question_id' => $question['id']]);
-$answers = $stmt->fetchAll();
-
-// Antwort speichern
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['answer_id'])) {
-    $answer_id = $_POST['answer_id'];
-    $stmt = $pdo->prepare("SELECT is_correct FROM answer WHERE id = :answer_id");
-    $stmt->execute(['answer_id' => $answer_id]);
-    $is_correct = $stmt->fetchColumn();
-
-    $stmt = $pdo->prepare("INSERT INTO result (user_id, question_id, answer_id, is_correct) VALUES (:user_id, :question_id, :answer_id, :is_correct)");
-    $stmt->execute(['user_id' => $_SESSION['user_id'], 'question_id' => $question['id'], 'answer_id' => $answer_id, 'is_correct' => $is_correct]);
-
-    $_SESSION['question_index']++;
-    header("Location: quiz.php");
-    exit;
-}
-
-// Frage anzeigen
-echo "<form method='post' class='q-form'>";
-echo "<p class='c-question'>{$question['text']}</p>";
-foreach ($answers as $answer) {
-    echo "<label class='ans'><input type='radio' name='answer_id' value='{$answer['id']}' required> {$answer['text']}</label><br>";
-}
-echo "<button type='submit'>Weiter</button>";
-echo "</form>";
-
-
-// Fetch root categories
-$rootCategories = $pdo->query("SELECT id, name FROM category WHERE parent_id IS NULL")->fetchAll();
-?>
-
+</main>
 </body>
+</html>

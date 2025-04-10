@@ -1,6 +1,31 @@
+<?php
+require 'db.php';
+session_start();
+session_regenerate_id(true);
+
+// Nutzername zu user_id mappen
+$stmt = $pdo->query("
+    SELECT u.username, r.correct_answers, r.total_questions, r.percentage, r.created_at
+    FROM results r
+    JOIN user u ON u.id = r.user_id
+    INNER JOIN (
+        SELECT user_id, MAX(percentage) AS best_percentage
+        FROM results
+        GROUP BY user_id
+    ) AS best
+    ON r.user_id = best.user_id AND r.percentage = best.best_percentage
+    ORDER BY r.percentage DESC, r.correct_answers DESC, r.created_at
+");
+
+$leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+
+<!DOCTYPE html>
+<html lang="de">
 <head>
+    <meta charset="UTF-8">
     <title>SuperQuiz: Leaderboard</title>
-    <link rel='stylesheet' href='style.css'>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
@@ -15,41 +40,36 @@
         </ul>
     </nav>
 </header>
-<?php
-global $pdo;
-session_start();
-session_regenerate_id(true);
-require 'db.php';
-require_once 'error_handler.php';
 
-// Alle Ergebnisse abfragen, sortiert nach Anzahl der richtigen Antworten
-$stmt = $pdo->query("SELECT u.username, r.correct_answers, r.percentage
-                     FROM results r
-                     JOIN user u ON r.user_id = u.id
-                     ORDER BY r.correct_answers DESC, r.percentage DESC");
-
-$results = $stmt->fetchAll();
-?>
-
-<h2>Leaderboard</h2>
-<table>
-    <thead>
-    <tr>
-        <th>Benutzername</th>
-        <th>Richtige Antworten</th>
-        <th>Prozent</th>
-    </tr>
-    </thead>
-    <tbody>
-    <?php foreach ($results as $result): ?>
+<main>
+    <table>
+        <thead>
         <tr>
-            <td><?php echo htmlspecialchars($result['username']); ?></td>
-            <td><?php echo $result['correct_answers']; ?></td>
-            <td><?php echo number_format($result['percentage'], 2); ?>%</td>
+            <th>Platz</th>
+            <th>Benutzer</th>
+            <th>Richtige</th>
+            <th>Insgesamt</th>
+            <th>Prozentsatz</th>
+            <th>Datum</th>
         </tr>
-    <?php endforeach; ?>
-    </tbody>
-</table>
-
-<a href="quiz.php">Zurück zum Quiz</a>
+        </thead>
+        <tbody>
+        <?php if ($leaderboard): ?>
+            <?php foreach ($leaderboard as $i => $entry): ?>
+                <tr>
+                    <td><?= $i + 1 ?></td>
+                    <td><?= htmlspecialchars($entry['username']) ?></td>
+                    <td><?= $entry['correct_answers'] ?></td>
+                    <td><?= $entry['total_questions'] ?></td>
+                    <td><?= number_format($entry['percentage'], 2) ?>%</td>
+                    <td><?= htmlspecialchars($entry['created_at']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <tr><td colspan="6">Noch keine Einträge</td></tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+</main>
 </body>
+</html>

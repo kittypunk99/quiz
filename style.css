@@ -132,6 +132,21 @@ form {
 
 }
 
+.category {
+    width: 20vw;
+    margin-left: 40vw;
+    margin-right: 40vw;
+}
+
+h3 {
+    text-align: center;
+}
+fieldset{
+    width: 30vw;
+    text-align: center;
+    margin-left: 35vw;
+    margin-right: 35vw;
+}
 label {
     display: block;
     margin-bottom: 8px;

@@ -16,7 +16,6 @@
     </nav>
 </header>
 <?php
-global $pdo;
 session_start();
 session_regenerate_id(true);
 require 'db.php';
@@ -27,28 +26,56 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['answers'], $_POST['csrf_token']) &&
+    hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
 
-// Ergebnisse abrufen
-$stmt = $pdo->prepare("SELECT COUNT(*) AS correct FROM result WHERE user_id = :user_id AND is_correct = 1  ");
-$stmt->execute(['user_id' => $_SESSION['user_id']]);
-$correct = $stmt->fetchColumn();
+    $user_id = $_SESSION['user_id'];
+    $answers = $_POST['answers'];
+    $correct = 0;
+    $total = count($answers);
 
-$stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM result WHERE user_id = :user_id");
-$stmt->execute(['user_id' => $_SESSION['user_id']]);
-$total = $stmt->fetchColumn();
-unset($_SESSION['category_id']);
-try {
-    $percentage = $correct / $total * 100;
-} catch (DivisionByZeroError $e) {
-    $percentage = 0;
+    foreach ($answers as $question_id => $answer_id) {
+        $question_id = (int)$question_id;
+        $answer_id = (int)$answer_id;
+
+        // Ist die Antwort korrekt?
+        $stmt = $pdo->prepare("SELECT is_correct FROM answer WHERE id = :answer_id AND question_id = :question_id");
+        $stmt->execute(['answer_id' => $answer_id, 'question_id' => $question_id]);
+        $is_correct = $stmt->fetchColumn();
+
+        $stmt = $pdo->prepare("INSERT INTO result (user_id, question_id, answer_id, is_correct)
+                               VALUES (:user_id, :question_id, :answer_id, :is_correct)");
+        $stmt->execute([
+            'user_id'     => $user_id,
+            'question_id' => $question_id,
+            'answer_id'   => $answer_id,
+            'is_correct'  => (bool)$is_correct,
+        ]);
+
+        if ($is_correct) $correct++;
+    }
+
+    $percentage = $total > 0 ? $correct / $total * 100 : 0;
+
+    $stmt = $pdo->prepare("INSERT INTO results (user_id, correct_answers, total_questions, percentage)
+                           VALUES (:user_id, :correct_answers, :total_questions, :percentage)");
+    $stmt->execute([
+        'user_id'         => $user_id,
+        'correct_answers' => $correct,
+        'total_questions' => $total,
+        'percentage'      => $percentage
+    ]);
+
+    echo "<h2>Auswertung</h2>";
+    echo "<p>Richtige Antworten: $correct von $total</p>";
+    echo "<a href='quiz.php'>Neues Quiz starten</a>";
+    exit;
+} else {
+    echo "<p>Ungültiger Zugriff oder CSRF-Token ungültig.</p>";
+    echo "<a href='quiz.php'>Zurück zum Quiz</a>";
+    exit;
 }
-$stmt = $pdo->prepare("INSERT INTO results (user_id, correct_answers, total_questions, percentage) 
-                       VALUES (:user_id, :correct_answers, :total_questions, :percentage)");
-$stmt->execute(['user_id' => $_SESSION['user_id'], 'correct_answers' => $correct, 'total_questions' => $total, 'percentage' => $percentage]);
-// Ergebnis anzeigen
-echo "<h2>Auswertung</h2>";
-echo "<p>Richtige Antworten: $correct von $total</p>";
-echo "<a href='quiz.php'>Neues Quiz starten</a>";
+
 ?>
 <link rel="stylesheet" href="style.css">
 </body>
