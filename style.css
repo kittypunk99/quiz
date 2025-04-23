@@ -88,7 +88,16 @@ a {
     width: 100vw;
     text-align: center;
 }
-
+.correct {
+    width: 100vw;
+    text-align: center;
+    color: #4CAF50;
+}
+.incorrect {
+    width: 100vw;
+    text-align: center;
+    color: #f44336;
+}
 /* Kopfzeile */
 header {
     text-align: center;

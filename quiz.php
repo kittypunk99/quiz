@@ -2,13 +2,8 @@
 session_start();
 session_regenerate_id(true);
 require_once 'db.php';
-global $pdo;
 
-// CSRF
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-$csrf_token = $_SESSION['csrf_token'];
+
 
 function get_subcategories($parent_id, $pdo): array
 {
@@ -17,7 +12,7 @@ function get_subcategories($parent_id, $pdo): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function get_category_path($category_id, $pdo): array
+/*function get_category_path($category_id, $pdo): array
 {
     $path = [];
     while ($category_id) {
@@ -29,6 +24,9 @@ function get_category_path($category_id, $pdo): array
         $category_id = $cat['parent_id'];
     }
     return $path;
+}*/
+if (isset($_POST['start_quiz'])) {
+    unset($_SESSION['answers'], $_SESSION['current_question']);
 }
 
 // Kategorieauswahl auslesen
@@ -41,36 +39,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if (isset($_POST['start_quiz']) && count($selected_path) > 0) {
+    if (isset($_POST['next'])) {
+        $_SESSION['current_question']++;
+        $_SESSION['answers'] = $_SESSION['answers'] ?? [];
+        foreach ($_POST['answers'] as $qid => $aid) {
+            $_SESSION['answers'][$qid] = $aid;
+        }
+    } elseif (isset($_POST['prev'])) {
+        $_SESSION['current_question'] = max(0, $_SESSION['current_question'] - 1);
+    } elseif (isset($_POST['start_quiz']) && count($selected_path) > 0) {
         $selected_category_id = end($selected_path);
+
+    }elseif (isset($_POST['finish_quiz'])) {
+        $_SESSION['answers'] = $_SESSION['answers'] ?? [];
+        foreach ($_POST['answers'] as $qid => $aid) {
+            $_SESSION['answers'][$qid] = $aid;
+        }
+        header("Location: result.php?" . http_build_query($_POST));
+        exit;    }
+
+
+    if (isset($_POST['answers'])) {
+        $_SESSION['answers'] = $_SESSION['answers'] ?? [];
+        foreach ($_POST['answers'] as $qid => $aid) {
+            $_SESSION['answers'][$qid] = $aid;
+        }
     }
+
 }
 
+if (!isset($_SESSION['quiz_category'])) {
 // Root-Kategorie ("Hauptkategorie") ermitteln
-$stmt = $pdo->prepare("SELECT id FROM category WHERE name = 'Hauptkategorie' LIMIT 1");
-$stmt->execute();
-$root_id = $stmt->fetchColumn();
+    $stmt = $pdo->prepare("SELECT id FROM category WHERE name = 'Hauptkategorie' LIMIT 1");
+    $stmt->execute();
+    $root_id = $stmt->fetchColumn();
 
-$current_parent_id = $root_id;
-$category_selects = [];
+    $current_parent_id = $root_id;
+    $category_selects = [];
 
-foreach ($selected_path as $depth => $cat_id) {
-    $subcats = get_subcategories($current_parent_id, $pdo);
-    if (count($subcats) === 0) break;
+    foreach ($selected_path as $depth => $cat_id) {
+        $subcats = get_subcategories($current_parent_id, $pdo);
+        if (count($subcats) === 0) break;
 
-    $category_selects[] = ['name' => "cat_$depth", 'selected' => $cat_id, 'options' => $subcats,];
-    $current_parent_id = $cat_id;
-}
+        $category_selects[] = ['name' => "cat_$depth", 'selected' => $cat_id, 'options' => $subcats,];
+        $current_parent_id = $cat_id;
+    }
 
 // Letzten Level nachladen, wenn es noch Unterkategorien gibt
-$next_subcategories = get_subcategories($current_parent_id, $pdo);
-if (count($next_subcategories) > 0) {
-    $category_selects[] = ['name' => 'cat_' . count($category_selects), 'selected' => null, 'options' => $next_subcategories,];
-}
+    $next_subcategories = get_subcategories($current_parent_id, $pdo);
+    if (count($next_subcategories) > 0) {
+        $category_selects[] = ['name' => 'cat_' . count($category_selects), 'selected' => null, 'options' => $next_subcategories,];
+    }
 
 // Fragen laden, falls Quiz gestartet wurde
-$questions = [];
-$stmt = $pdo->prepare("
+    $questions = [];
+    $stmt = $pdo->prepare("
     SELECT q.id, q.text
     FROM question q
     WHERE q.category_id = :category_id
@@ -81,11 +104,12 @@ $stmt = $pdo->prepare("
           SELECT 1 FROM answer a WHERE a.question_id = q.id AND a.is_correct = 0
       )
 ");
-$stmt->execute(['category_id' => $selected_category_id]);
-$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$_SESSION['quiz_questions'] = $questions;
-$_SESSION['current_question'] = 0;
-
+    $stmt->execute(['category_id' => $selected_category_id]);
+    $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $_SESSION['quiz_category'] = $selected_category_id;
+    $_SESSION['quiz_questions'] = $questions;
+    $_SESSION['current_question'] = 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -110,7 +134,7 @@ $_SESSION['current_question'] = 0;
 </header>
 <main>
 
-    <?php if (!$selected_category_id): ?>
+    <?php if (!$_SESSION['quiz_category']): ?>
         <h3>Kategorie wählen</h3>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
@@ -133,44 +157,43 @@ $_SESSION['current_question'] = 0;
             <noscript><input type="submit" value="Weiter"></noscript>
         </form>
 
-    <?php elseif ($questions): ?>
+    <?php elseif ($_SESSION['quiz_questions']): ?>
 
-        <form method="post" action="result.php">
+        <form method="post" ><!--action="result.php"-->
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" name="category_id" value="<?= htmlspecialchars($selected_category_id) ?>">
             <?php
-            if (isset($_POST['next'])) {
-                $_SESSION['current_question']++;
-            } elseif (isset($_POST['prev'])) {
-                $_SESSION['current_question'] = max(0, $_SESSION['current_question'] - 1);
-            }
 
             $index = $_SESSION['current_question'];
+            $total_questions = count($_SESSION['quiz_questions']);
+
             if (isset($_SESSION['quiz_questions'][$index])) {
                 $current_question = $_SESSION['quiz_questions'][$index];
-                echo "<h3>Frage " . ($index + 1) . ":</h3>";
+                echo "<h3>Frage " . ($index + 1) . " von $total_questions:</h3>";
                 echo "<p>" . htmlspecialchars($current_question['text']) . "</p>";
 
-                // Antworten abrufen
                 $stmt = $pdo->prepare("SELECT id, text FROM answer WHERE question_id = :qid ORDER BY RAND()");
                 $stmt->execute(['qid' => $current_question['id']]);
                 $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                // Antworten anzeigen
                 foreach ($answers as $answer) {
+                    $is_checked = isset($_SESSION['answers'][$current_question['id']]) && $_SESSION['answers'][$current_question['id']] == $answer['id'];
                     echo "<label>";
-                    echo "<input type='checkbox' name='answers[" . htmlspecialchars($current_question['id']) . "]' value='" . htmlspecialchars($answer['id']) . "' required>";
+                    echo "<input type='radio' name='answers[" . htmlspecialchars($current_question['id']) . "]' value='" . htmlspecialchars($answer['id']) . "' " . ($is_checked ? "checked" : "") . " required>";
                     echo htmlspecialchars($answer['text']);
                     echo "</label><br>";
                 }
+
                 if ($index > 0) {
                     echo "<button type='submit' name='prev'>Zurück</button>";
-                } elseif ($index < count($answers)) {
+                }
+                if ($index < $total_questions - 1) {
                     echo "<button type='submit' name='next'>Weiter</button>";
                 } else {
-                    echo "<input type='submit' value='Abschicken'>";
+                    echo "<button type='submit' name='finish_quiz' >Fertig</button>";/*formaction='result.php'*/
                 }
             }
+
             ?>
 
         </form>

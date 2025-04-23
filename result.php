@@ -26,11 +26,16 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['answers'], $_POST['csrf_token']) &&
-    hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST'  // <- Nur wenn "Fertig" geklickt wurde
+    && isset($_SESSION['answers'])){
+    unset($_SESSION['quiz_category']);
+    unset($_SESSION['quiz_questions']);
+    unset($_SESSION['quiz_answers']);
+    echo "<h1>Ergebnisse</h1>";
+
 
     $user_id = $_SESSION['user_id'];
-    $answers = $_POST['answers'];
+    $answers = $_SESSION['answers'];
     $correct = 0;
     $total = count($answers);
 
@@ -39,34 +44,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['answers'], $_POST['cs
         $answer_id = (int)$answer_id;
 
         // Ist die Antwort korrekt?
-        $stmt = $pdo->prepare("SELECT is_correct FROM answer WHERE id = :answer_id AND question_id = :question_id");
+        $stmt = $pdo->prepare("SELECT a.is_correct, q.text AS question_text, a.text AS answer_text 
+                       FROM answer a 
+                       JOIN question q ON q.id = a.question_id 
+                       WHERE a.id = :answer_id AND a.question_id = :question_id");
         $stmt->execute(['answer_id' => $answer_id, 'question_id' => $question_id]);
-        $is_correct = $stmt->fetchColumn();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $pdo->prepare("INSERT INTO result (user_id, question_id, answer_id, is_correct)
+        $is_correct = $result['is_correct'];
+        $question_text = $result['question_text'];
+        $answer_text = $result['answer_text'];
+
+        /*$stmt = $pdo->prepare("INSERT INTO result (user_id, question_id, answer_id, is_correct)
                                VALUES (:user_id, :question_id, :answer_id, :is_correct)");
         $stmt->execute([
             'user_id'     => $user_id,
             'question_id' => $question_id,
             'answer_id'   => $answer_id,
             'is_correct'  => (bool)$is_correct,
-        ]);
+        ]);*/
 
         if ($is_correct) $correct++;
+        echo "<p class='" . ($is_correct ? "correct" : "incorrect") . "'>Frage: $question_text: Antwort $answer_text ist " . ($is_correct ? "richtig" : "falsch") . "</p>";
     }
 
     $percentage = $total > 0 ? $correct / $total * 100 : 0;
 
-    $stmt = $pdo->prepare("INSERT INTO results (user_id, correct_answers, total_questions, percentage)
-                           VALUES (:user_id, :correct_answers, :total_questions, :percentage)");
-    $stmt->execute([
-        'user_id'         => $user_id,
-        'correct_answers' => $correct,
-        'total_questions' => $total,
-        'percentage'      => $percentage
-    ]);
+    $stmt = $pdo->prepare("
+    INSERT INTO leaderboard (user_id, correct_answers, total_questions, percentage)
+    VALUES (:user_id, :correct, :total, :percentage)
+    ON DUPLICATE KEY UPDATE
+        correct_answers = correct_answers + VALUES(correct_answers),
+        total_questions = total_questions + VALUES(total_questions),
+        percentage = (correct_answers + VALUES(correct_answers)) / (total_questions + VALUES(total_questions)) * 100,
+        updated_at = CURRENT_TIMESTAMP
+");
 
-    echo "<h2>Auswertung</h2>";
+    $stmt->execute(['user_id' => $user_id, 'correct' => $correct, 'total' => $total, 'percentage' => $percentage]);
+
+
     echo "<p>Richtige Antworten: $correct von $total</p>";
     echo "<a href='quiz.php'>Neues Quiz starten</a>";
     exit;

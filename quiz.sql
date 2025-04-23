@@ -16,7 +16,7 @@ CREATE TABLE user
     id         INT AUTO_INCREMENT PRIMARY KEY,
     username   VARCHAR(255) NOT NULL UNIQUE,
     password   VARCHAR(255) NOT NULL,
-    is_admin BOOLEAN DEFAULT FALSE,
+    is_admin   BOOLEAN   DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -68,6 +68,15 @@ CREATE TABLE results
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user (id)
 );
+CREATE TABLE leaderboard
+(
+    user_id         INT PRIMARY KEY,
+    correct_answers INT           NOT NULL,
+    total_questions INT           NOT NULL,
+    percentage      DECIMAL(5, 2) NOT NULL,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
+);
 
 DELIMITER $$
 
@@ -90,7 +99,32 @@ BEGIN
     END IF;
 end$$
 DELIMITER ;
-INSERT INTO category (name, parent_id)
-VALUES ('Hauptkategorie', NULL);
 INSERT INTO user (username, password, is_admin)
-VALUES ('admin', '$2y$10$FiqctkmNl0IMFmNdrP.zO.kroSepVvWLm68tscA562sPS/yYVeGVK',true);
+VALUES ('admin', '$2y$10$FiqctkmNl0IMFmNdrP.zO.kroSepVvWLm68tscA562sPS/yYVeGVK', true);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (1, 'Hauptkategorie', null);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (2, 'tiere', 1);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (3, 'fische', 2);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (4, 'autos', 1);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (5, 'katzen', 2);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (6, 'haus', 1);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (7, 'pfoten', 5);
+INSERT INTO quiz_db.category (id, name, parent_id) VALUES (8, 'man', 2);
+
+INSERT INTO quiz_db.question (id, category_id, text) VALUES (1, 2, 'test-tiere');
+INSERT INTO quiz_db.question (id, category_id, text) VALUES (2, 3, 'test-fische?');
+INSERT INTO quiz_db.question (id, category_id, text) VALUES (3, 4, 'test-autos');
+INSERT INTO quiz_db.question (id, category_id, text) VALUES (4, 3, 'aua');
+INSERT INTO quiz_db.question (id, category_id, text) VALUES (5, 2, 'asaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+
+
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (1, 1, 'ja', 1);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (2, 1, 'nein', 0);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (3, 2, 'ja', 1);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (4, 2, 'nein', 0);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (5, 3, 'ja', 1);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (6, 3, 'nein', 0);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (7, 4, 'asdf', 1);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (8, 4, 'ghfdgsdfafd', 0);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (9, 5, 'b', 1);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (10, 1, 'c', 0);
+INSERT INTO quiz_db.answer (id, question_id, text, is_correct) VALUES (11, 5, 'g', 0);

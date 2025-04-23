@@ -3,18 +3,12 @@ require 'db.php';
 session_start();
 session_regenerate_id(true);
 
-// Nutzername zu user_id mappen
+// Werte aus der neuen leaderboard-Tabelle abrufen
 $stmt = $pdo->query("
-    SELECT u.username, r.correct_answers, r.total_questions, r.percentage, r.created_at
-    FROM results r
-    JOIN user u ON u.id = r.user_id
-    INNER JOIN (
-        SELECT user_id, MAX(percentage) AS best_percentage
-        FROM results
-        GROUP BY user_id
-    ) AS best
-    ON r.user_id = best.user_id AND r.percentage = best.best_percentage
-    ORDER BY r.percentage DESC, r.correct_answers DESC, r.created_at
+    SELECT u.username, l.correct_answers, l.total_questions, l.percentage, l.updated_at
+    FROM leaderboard l
+    JOIN user u ON u.id = l.user_id
+    ORDER BY l.percentage DESC, l.correct_answers DESC, l.updated_at DESC
 ");
 
 $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -50,7 +44,7 @@ $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <th>Richtige</th>
             <th>Insgesamt</th>
             <th>Prozentsatz</th>
-            <th>Datum</th>
+            <th>Letzte Änderung</th>
         </tr>
         </thead>
         <tbody>
@@ -62,7 +56,7 @@ $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <td><?= $entry['correct_answers'] ?></td>
                     <td><?= $entry['total_questions'] ?></td>
                     <td><?= number_format($entry['percentage'], 2) ?>%</td>
-                    <td><?= htmlspecialchars($entry['created_at']) ?></td>
+                    <td><?= htmlspecialchars($entry['updated_at']) ?></td>
                 </tr>
             <?php endforeach; ?>
         <?php else: ?>
