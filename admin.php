@@ -16,7 +16,6 @@
     </nav>
 </header>
 <?php
-global $pdo;
 session_start();
 session_regenerate_id(true);
 require 'db.php';
