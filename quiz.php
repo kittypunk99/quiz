@@ -39,7 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['next']) || isset($_POST['prev'])) {
         $_SESSION['current_question'] += isset($_POST['next']) ? 1 : -1;
         $_SESSION['current_question'] = max(0, $_SESSION['current_question']);
-        $_SESSION['answers'] = array_merge($_SESSION['answers'] ?? [], $_POST['answers'] ?? []);
+        if (isset($_POST['answers']) && is_array($_POST['answers'])) {
+            foreach ($_POST['answers'] as $qid => $aid) {
+                $_SESSION['answers'][(int)$qid] = (int)$aid;
+            }
+        }
     }
 }
 if (!isset($_SESSION['quiz_category'])) {
@@ -143,6 +147,7 @@ if (!isset($_SESSION['quiz_category'])) {
                 echo "<label class='ans'><input type='radio' name='answers[{$current_question['id']}]' value='{$answer['id']}' " . ($is_checked ? "checked" : "") . " required>";
                 echo htmlspecialchars($answer['text']) . "</label><br>";
             }
+            var_dump($_SESSION['answers']);
             if ($index > 0) echo "<button type='submit' name='prev'>Zurück</button>";
             if ($index < $total_questions - 1) echo "<button type='submit' name='next'>Weiter</button>"; else echo "<button type='submit' formaction='result.php' name='finish_quiz'>Fertig</button>";
             ?>

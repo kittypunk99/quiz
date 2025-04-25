@@ -453,5 +453,5 @@ VALUES (58, 'Wiedergeburt der Antike', 1),
        (61, 'Philosoph', 0),
        (62, 'Bewegung für Vernunft & Wissenschaft', 1),
        (62, 'Glaubenskrieg', 0),
-       (62, 'Kunststil', 0),
+(62, 'Kunststil', 0),
        (62, 'Krieg', 0);
