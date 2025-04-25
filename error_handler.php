@@ -14,5 +14,5 @@ function customExceptionHandler($exception)
     exit();
 }
 
-#set_error_handler("customErrorHandler");
-#set_exception_handler("customExceptionHandler");
+set_error_handler("customErrorHandler");
+set_exception_handler("customExceptionHandler");

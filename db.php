@@ -1,6 +1,5 @@
 <?php
 require_once 'error_handler.php';
-// Datenbankverbindung
 $host = 'localhost';
 $dbname = 'quiz_db';
 $user = 'root';
