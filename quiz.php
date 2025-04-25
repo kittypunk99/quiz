@@ -2,6 +2,7 @@
 session_start();
 session_regenerate_id(true);
 require_once 'db.php';
+require_once 'error_handler.php';
 if (empty($_SESSION['csrf_token']) || !isset($_SESSION['csrf_token'])) {
     $csrf_token = bin2hex(random_bytes(32));
     $_SESSION['csrf_token'] = $csrf_token;
